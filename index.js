@@ -87,12 +87,19 @@ function traceLastPositions() {
   playerTrace.push(Array.from(position));
 }
 
+const PLAYER_COLOR_MIN = 30;
+const PLAYER_COLOR_MAX = 60;
+const COLOR_DIFF = 5;
+
 function renderPlayerTrace() {
   for (let i = 0; i < playerTrace.length; i++) {
     const trace = playerTrace[i];
     const stepMultiplier = i / playerTrace.length;
+    const color =
+      PLAYER_COLOR_MIN + (PLAYER_COLOR_MAX - PLAYER_COLOR_MIN) * stepMultiplier;
+    const light = 50 - COLOR_DIFF + stepMultiplier * COLOR_DIFF;
 
-    ctx.fillStyle = `hsl(${stepMultiplier * 360}, 100%, ${stepMultiplier * 50}%)`;
+    ctx.fillStyle = `hsl(${color}, 100%, ${light}%)`;
     ctx.beginPath();
     ctx.arc(trace[0], trace[1], PLAYER_RADIUS * stepMultiplier, 0, Math.PI * 2);
     ctx.fill();
