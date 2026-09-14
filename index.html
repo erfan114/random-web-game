@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MyGame</title>
+  </head>
+  <body
+    style="
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: black;
+      height: 100vh;
+    "
+  >
+    <span style="position: fixed; left: 10px; top: 10px; color: white">
+      FPS: <span id="my-fps">-</span>
+    </span>
+    <span style="position: fixed; left: 10px; top: 30px; color: white">
+      Score: <span id="my-score">0</span>
+    </span>
+    <canvas id="my-game" width="500" height="500"></canvas>
+    <script src="./index.js"></script>
+  </body>
+</html>
