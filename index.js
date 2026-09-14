@@ -46,16 +46,16 @@ function togglePause() {
 }
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") {
+  if (event.code === "Escape") {
     togglePause();
     return;
   }
 
-  activeKeys.add(event.key);
+  activeKeys.add(event.code);
 });
 
 document.addEventListener("keyup", (event) => {
-  activeKeys.delete(event.key);
+  activeKeys.delete(event.code);
 });
 
 const MAX_VELOCITY = 1;
@@ -68,19 +68,19 @@ function getI(value) {
 
 function calculateVelocity() {
   for (const key of activeKeys) {
-    if (key === "w") {
+    if (key === "KeyW") {
       velocity[1] = Math.max(velocity[1] - VELOCITY_THRESHOLD, -MAX_VELOCITY);
     }
 
-    if (key === "s") {
+    if (key === "KeyS") {
       velocity[1] = Math.min(velocity[1] + VELOCITY_THRESHOLD, MAX_VELOCITY);
     }
 
-    if (key === "a") {
+    if (key === "KeyA") {
       velocity[0] = Math.max(velocity[0] - VELOCITY_THRESHOLD, -MAX_VELOCITY);
     }
 
-    if (key === "d") {
+    if (key === "KeyD") {
       velocity[0] = Math.min(velocity[0] + VELOCITY_THRESHOLD, MAX_VELOCITY);
     }
   }
