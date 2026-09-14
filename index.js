@@ -48,6 +48,17 @@ function togglePause() {
 document.addEventListener("keydown", (event) => {
   if (event.code === "Escape") {
     togglePause();
+
+    return;
+  }
+
+  if (event.code === "KeyR") {
+    restart();
+
+    if (paused) {
+      togglePause();
+    }
+
     return;
   }
 
