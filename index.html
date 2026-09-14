@@ -24,6 +24,9 @@
     <span style="position: fixed; left: 10px; top: 70px; color: white">
       Move: A/W/S/D
     </span>
+    <span style="position: fixed; left: 10px; top: 90px; color: white">
+      Pause: ESC
+    </span>
     <span
       id="bar"
       style="
@@ -35,7 +38,24 @@
       "
     >
     </span>
+    <div
+      id="pause"
+      style="
+        background-color: rgba(0, 0, 0, 0.8);
+        position: fixed;
+        inset: 0;
+        color: white;
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      "
+    >
+      <h1>Game Paused</h1>
+      <p>Press ESC to continue</p>
+    </div>
     <canvas id="my-game" width="500" height="500"></canvas>
+
     <script src="./index.js"></script>
   </body>
 </html>

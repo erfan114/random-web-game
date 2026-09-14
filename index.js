@@ -5,6 +5,7 @@ const ctx = canvasElement.getContext("2d");
 const fpsElement = document.getElementById("my-fps");
 const scoreElement = document.getElementById("my-score");
 const barElement = document.getElementById("bar");
+const pauseElement = document.getElementById("pause");
 
 const PLAYER_SPEED = 0.3;
 const PLAYER_RADIUS = 10;
@@ -32,7 +33,24 @@ function renderPlayer() {
 
 const activeKeys = new Set();
 
+let paused = false;
+
+function togglePause() {
+  if (paused) {
+    pauseElement.style.display = "none";
+  } else {
+    pauseElement.style.display = "flex";
+  }
+
+  paused = !paused;
+}
+
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    togglePause();
+    return;
+  }
+
   activeKeys.add(event.key);
 });
 
@@ -279,20 +297,22 @@ function loop() {
 
   lastTime = now;
 
-  clear();
-  calculateVelocity();
-  renderPlayerTrace();
-  movePlayer(diff);
-  boundaryCheck();
-  generateEntity();
-  checkEntitiesCollision();
-  escapeEntities();
-  updateRemainingTime();
-  checkRemainingTime();
-  renderPlayer();
-  renderEntities();
+  if (!paused) {
+    clear();
+    calculateVelocity();
+    renderPlayerTrace();
+    movePlayer(diff);
+    boundaryCheck();
+    generateEntity();
+    checkEntitiesCollision();
+    escapeEntities();
+    updateRemainingTime();
+    checkRemainingTime();
+    renderPlayer();
+    renderEntities();
 
-  calculateFPS(diff);
+    calculateFPS(diff);
+  }
 
   requestAnimationFrame(loop);
 }
