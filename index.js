@@ -159,6 +159,7 @@ function generateEntity() {
 }
 
 const DANGER_RADIUS = 100;
+
 const MAX_ESCAPE_SPEED = 4;
 const MIN_ESCAPE_SPEED = 2;
 
@@ -166,7 +167,7 @@ function escapeEntities() {
   const totalRadius = PLAYER_RADIUS + DANGER_RADIUS + ENTITY_RADIUS;
 
   for (const entity of currentEntities) {
-    const { x, y } = entity;
+    const { x, y, score } = entity;
 
     const dx = x - position[0];
     const dy = y - position[1];
@@ -177,7 +178,9 @@ function escapeEntities() {
       continue;
     }
 
-    const dynamicSpeed = MAX_ESCAPE_SPEED * (1 - distance / totalRadius);
+    const scoreSpeed = score / MAX_VALUE;
+    const dynamicSpeed =
+      MAX_ESCAPE_SPEED * (1 - distance / totalRadius) * scoreSpeed;
 
     // Direction away from the player
     const nx = dx / distance;
