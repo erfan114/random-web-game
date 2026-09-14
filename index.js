@@ -4,6 +4,7 @@ const ctx = canvasElement.getContext("2d");
 
 const fpsElement = document.getElementById("my-fps");
 const scoreElement = document.getElementById("my-score");
+const barElement = document.getElementById("bar");
 
 const PLAYER_SPEED = 0.3;
 const PLAYER_RADIUS = 10;
@@ -14,9 +15,13 @@ function clear() {
   ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
 }
 
-const position = [canvasElement.width / 2, canvasElement.height / 2];
-const velocity = [0, 0];
-let currentScore = 0;
+const INITIAL_POSITION = [canvasElement.width / 2, canvasElement.height / 2];
+const INITIAL_VELOCITY = [0, 0];
+const INITIAL_SCORE = 0;
+
+let position = [...INITIAL_POSITION];
+let velocity = [...INITIAL_VELOCITY];
+let currentScore = INITIAL_SCORE;
 
 function renderPlayer() {
   ctx.fillStyle = "hsl(237, 100%, 50%)";
@@ -130,7 +135,7 @@ function boundaryCheck() {
 
 const currentEntities = new Set();
 
-const MAX_POSSIBLE_ENTITIES = 10;
+const MAX_POSSIBLE_ENTITIES = 50;
 const MAX_VALUE = 50;
 const MIN_VALUE = 10;
 
@@ -191,6 +196,36 @@ function escapeEntities() {
   }
 }
 
+const MAX_REMAINING_TIMER = 1000;
+const INITIAL_TIMER_DRAIN = 1;
+
+let remainingTimer = MAX_REMAINING_TIMER;
+let timerDrain = INITIAL_TIMER_DRAIN;
+
+function updateRemainingTime() {
+  remainingTimer = Math.max(remainingTimer - timerDrain, 0);
+}
+
+function restart() {
+  position = [...INITIAL_POSITION];
+  velocity = [...INITIAL_VELOCITY];
+  currentScore = INITIAL_SCORE;
+  remainingTimer = MAX_REMAINING_TIMER;
+  currentEntities.clear();
+  activeKeys.clear();
+}
+
+function checkRemainingTime() {
+  if (remainingTimer > 0) return;
+
+  alert(`You lost, score: ${currentScore}`);
+  restart();
+}
+
+function addRemainingTime(v) {
+  remainingTimer = Math.min(remainingTimer + v, MAX_REMAINING_TIMER);
+}
+
 function checkEntitiesCollision() {
   const totalRadius = PLAYER_RADIUS + ENTITY_RADIUS;
 
@@ -207,6 +242,8 @@ function checkEntitiesCollision() {
     }
 
     currentScore += score;
+    addRemainingTime(score);
+
     currentEntities.delete(entity);
   }
 }
@@ -231,6 +268,7 @@ function calculateFPS(diff) {
 function updateUI() {
   fpsElement.innerText = currentFPS;
   scoreElement.innerText = currentScore;
+  barElement.style.width = `${(remainingTimer / MAX_REMAINING_TIMER) * 100}%`;
 }
 
 let lastTime = performance.now();
@@ -249,6 +287,8 @@ function loop() {
   generateEntity();
   checkEntitiesCollision();
   escapeEntities();
+  updateRemainingTime();
+  checkRemainingTime();
   renderPlayer();
   renderEntities();
 
