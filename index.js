@@ -1,334 +1,867 @@
-/** @type {HTMLCanvasElement} */
-const canvasElement = document.getElementById("my-game");
-const ctx = canvasElement.getContext("2d");
+// @ts-check
 
-const fpsElement = document.getElementById("my-fps");
-const scoreElement = document.getElementById("my-score");
-const barElement = document.getElementById("bar");
-const pauseElement = document.getElementById("pause");
+// * MATH
+
+/**
+ * @param {number} min
+ * @param {number} value
+ * @param {number} max
+ */
+function clamp(min, value, max) {
+  return Math.min(Math.max(min, value), max);
+}
+
+class NumericRange {
+  #min;
+  #max;
+
+  /**
+   * @param {number} min
+   * @param {number} max
+   */
+  constructor(min, max) {
+    this.#min = min;
+    this.#max = max;
+  }
+
+  /**
+   * @param {number} pad
+   */
+  random(pad = 0) {
+    const min = this.#min + pad;
+    const max = this.#max - pad;
+
+    return min + Math.random() * (max - min);
+  }
+
+  /**
+   * @param {number} pad
+   */
+  randomInt(pad = 0) {
+    return Math.round(this.random(pad));
+  }
+}
+
+// * CONSTANTS
+
+const BACKGROUND_COLOR = "lightblue";
+
+const LEFT_PADDING = 10;
 
 const PLAYER_SPEED = 0.3;
 const PLAYER_RADIUS = 10;
+
 const ENTITY_RADIUS = 7;
+const MAX_ENTITY_VALUE = 50;
+const MIN_ENTITY_VALUE = 10;
+const MAX_ENTITY_COUNT = 50;
 
-function clear() {
-  ctx.fillStyle = "lightblue";
-  ctx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-}
-
-const INITIAL_POSITION = [canvasElement.width / 2, canvasElement.height / 2];
-const INITIAL_VELOCITY = [0, 0];
-const INITIAL_SCORE = 0;
-
-let position = [...INITIAL_POSITION];
-let velocity = [...INITIAL_VELOCITY];
-let currentScore = INITIAL_SCORE;
-
-function renderPlayer() {
-  ctx.fillStyle = "hsl(237, 100%, 50%)";
-  ctx.beginPath();
-  ctx.arc(position[0], position[1], PLAYER_RADIUS, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-const activeKeys = new Set();
-
-let paused = false;
-
-function togglePause() {
-  if (paused) {
-    pauseElement.style.display = "none";
-  } else {
-    pauseElement.style.display = "flex";
-  }
-
-  paused = !paused;
-}
-
-document.addEventListener("keydown", (event) => {
-  if (event.code === "Escape") {
-    togglePause();
-
-    return;
-  }
-
-  if (event.code === "KeyR") {
-    restart();
-
-    if (paused) {
-      togglePause();
-    }
-
-    return;
-  }
-
-  activeKeys.add(event.code);
-});
-
-document.addEventListener("keyup", (event) => {
-  activeKeys.delete(event.code);
-});
+const DANGER_RADIUS = 100;
+const MAX_ESCAPE_SPEED = 4;
 
 const MAX_VELOCITY = 1;
 const VELOCITY_THRESHOLD = 0.05;
 const VELOCITY_DRAIN_SPEED = 0.1;
 
-function getI(value) {
-  return value < 0 ? -1 : 1;
-}
-
-function calculateVelocity() {
-  for (const key of activeKeys) {
-    if (key === "KeyW") {
-      velocity[1] = Math.max(velocity[1] - VELOCITY_THRESHOLD, -MAX_VELOCITY);
-    }
-
-    if (key === "KeyS") {
-      velocity[1] = Math.min(velocity[1] + VELOCITY_THRESHOLD, MAX_VELOCITY);
-    }
-
-    if (key === "KeyA") {
-      velocity[0] = Math.max(velocity[0] - VELOCITY_THRESHOLD, -MAX_VELOCITY);
-    }
-
-    if (key === "KeyD") {
-      velocity[0] = Math.min(velocity[0] + VELOCITY_THRESHOLD, MAX_VELOCITY);
-    }
-  }
-
-  if (Math.abs(velocity[1]) > 0) {
-    const i = getI(velocity[1]);
-
-    velocity[1] -= VELOCITY_THRESHOLD * VELOCITY_DRAIN_SPEED * i;
-  }
-
-  if (Math.abs(velocity[0]) > 0) {
-    const i = getI(velocity[0]);
-
-    velocity[0] -= VELOCITY_THRESHOLD * VELOCITY_DRAIN_SPEED * i;
-  }
-}
-
 const MAX_TRACE = 10;
-
-const playerTrace = [];
-
-function traceLastPositions() {
-  if (playerTrace.length >= MAX_TRACE) {
-    playerTrace.shift();
-  }
-
-  playerTrace.push(Array.from(position));
-}
 
 const PLAYER_COLOR_MIN = 30;
 const PLAYER_COLOR_MAX = 60;
 const COLOR_DIFF = 5;
 
-function renderPlayerTrace() {
-  for (let i = 0; i < playerTrace.length; i++) {
-    const trace = playerTrace[i];
-    const stepMultiplier = i / playerTrace.length;
-    const color =
-      PLAYER_COLOR_MIN + (PLAYER_COLOR_MAX - PLAYER_COLOR_MIN) * stepMultiplier;
-    const light = 50 - COLOR_DIFF + stepMultiplier * COLOR_DIFF;
-
-    ctx.fillStyle = `hsl(${color}, 100%, ${light}%)`;
-    ctx.beginPath();
-    ctx.arc(trace[0], trace[1], PLAYER_RADIUS * stepMultiplier, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function movePlayer(diff) {
-  position[0] += velocity[0] * diff * PLAYER_SPEED;
-  position[1] += velocity[1] * diff * PLAYER_SPEED;
-}
-
-function clamp(min, value, max) {
-  return Math.min(Math.max(min, value), max);
-}
-
-function xBound(value, r) {
-  return clamp(r, value, canvasElement.width - r);
-}
-
-function yBound(value, r) {
-  return clamp(r, value, canvasElement.height - r);
-}
-
-function boundaryCheck() {
-  position[0] = xBound(position[0], PLAYER_RADIUS);
-  position[1] = yBound(position[1], PLAYER_RADIUS);
-}
-
-const currentEntities = new Set();
-
-const MAX_POSSIBLE_ENTITIES = 50;
-const MAX_VALUE = 50;
-const MIN_VALUE = 10;
-
-function generateEntity() {
-  if (currentEntities.size >= MAX_POSSIBLE_ENTITIES) return;
-
-  const x = clamp(
-    ENTITY_RADIUS,
-    Math.random() * canvasElement.width,
-    canvasElement.width - ENTITY_RADIUS,
-  );
-
-  const y = clamp(
-    ENTITY_RADIUS,
-    Math.random() * canvasElement.height,
-    canvasElement.height - ENTITY_RADIUS,
-  );
-
-  const score = Math.round(MIN_VALUE + Math.random() * (MAX_VALUE - MIN_VALUE));
-
-  currentEntities.add({
-    x,
-    y,
-    score,
-  });
-}
-
-const DANGER_RADIUS = 100;
-
-const MAX_ESCAPE_SPEED = 4;
-const MIN_ESCAPE_SPEED = 2;
-
-function escapeEntities() {
-  const totalRadius = PLAYER_RADIUS + DANGER_RADIUS + ENTITY_RADIUS;
-
-  for (const entity of currentEntities) {
-    const { x, y, score } = entity;
-
-    const dx = x - position[0];
-    const dy = y - position[1];
-
-    const distance = Math.hypot(dx, dy);
-
-    if (distance > totalRadius || distance === 0) {
-      continue;
-    }
-
-    const scoreSpeed = score / MAX_VALUE;
-    const dynamicSpeed =
-      MAX_ESCAPE_SPEED * (1 - distance / totalRadius) * scoreSpeed;
-
-    // Direction away from the player
-    const nx = dx / distance;
-    const ny = dy / distance;
-
-    entity.x = xBound(entity.x + nx * dynamicSpeed, ENTITY_RADIUS);
-    entity.y = yBound(entity.y + ny * dynamicSpeed, ENTITY_RADIUS);
-  }
-}
-
 const MAX_REMAINING_TIMER = 1000;
-const INITIAL_TIMER_DRAIN = 1;
+const REMAINING_TIMER_DRAIN = 1;
 
-let remainingTimer = MAX_REMAINING_TIMER;
-let timerDrain = INITIAL_TIMER_DRAIN;
+const BAR_HEIGHT = 10;
 
-function updateRemainingTime() {
-  remainingTimer = Math.max(remainingTimer - timerDrain, 0);
+// * ID
+
+function createIDGenerator() {
+  const generator = (function* () {
+    let i = 1;
+
+    while (true) {
+      yield i++;
+    }
+  })();
+
+  return () => generator.next().value.toString(16);
 }
 
-function restart() {
-  position = [...INITIAL_POSITION];
-  velocity = [...INITIAL_VELOCITY];
-  currentScore = INITIAL_SCORE;
-  remainingTimer = MAX_REMAINING_TIMER;
-  currentEntities.clear();
-  activeKeys.clear();
+const generateID = createIDGenerator();
+
+// * ELEMENT FACTORIES
+
+/**
+ * @param {number} size
+ */
+function createCanvasElement(size) {
+  const element = document.createElement("canvas");
+
+  element.id = generateID();
+  element.width = size;
+  element.height = size;
+
+  return element;
 }
 
-function checkRemainingTime() {
-  if (remainingTimer > 0) return;
+/**
+ * @param {string} initial
+ */
+function createTextElement(initial) {
+  const element = document.createElement("span");
 
-  alert(`You lost, score: ${currentScore}`);
-  restart();
+  element.id = generateID();
+  element.style.color = "white";
+  element.innerText = initial;
+
+  return element;
 }
 
-function addRemainingTime(v) {
-  remainingTimer = Math.min(remainingTimer + v, MAX_REMAINING_TIMER);
+/**
+ * @param {HTMLSpanElement} fpsElement
+ * @param {HTMLSpanElement} scoreElement
+ */
+function createInfoElement(fpsElement, scoreElement) {
+  const element = document.createElement("div");
+
+  element.id = generateID();
+  element.style.position = "fixed";
+  element.style.display = "flex";
+  element.style.flexDirection = "column";
+  element.style.left = "0px";
+  element.style.top = "0px";
+  element.style.padding = "1rem";
+  element.style.color = "white";
+
+  const fpsWrapperElement = document.createElement("div");
+
+  fpsWrapperElement.append("FPS: ", fpsElement);
+
+  const scoreWrapperElement = document.createElement("div");
+
+  scoreWrapperElement.append("Score: ", scoreElement);
+
+  const moveTipElement = createTextElement("Move: A/W/S/D");
+  const pauseTipElement = createTextElement("Pause: ESC");
+  const restartTipElement = createTextElement("Restart: R");
+
+  element.append(
+    fpsWrapperElement,
+    scoreWrapperElement,
+    document.createElement("br"),
+    moveTipElement,
+    pauseTipElement,
+    restartTipElement,
+  );
+
+  return element;
 }
 
-function checkEntitiesCollision() {
-  const totalRadius = PLAYER_RADIUS + ENTITY_RADIUS;
+function createPauseSceneElement() {
+  const element = document.createElement("div");
 
-  for (const entity of currentEntities) {
-    const { x, y, score } = entity;
+  element.id = generateID();
+  element.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+  element.style.position = "fixed";
+  element.style.inset = "0";
+  element.style.color = "white";
+  element.style.display = "none";
+  element.style.flexDirection = "column";
+  element.style.justifyContent = "center";
+  element.style.alignItems = "center";
 
-    const dx = x - position[0];
-    const dy = y - position[1];
+  const title = document.createElement("h1");
 
-    const delta = Math.hypot(dx, dy);
+  title.innerText = "Game Paused";
 
-    if (delta > totalRadius) {
-      continue;
+  const message = document.createElement("p");
+
+  message.innerText = "Press ESC to continue";
+
+  element.append(title, message);
+
+  return element;
+}
+
+function createBarElement() {
+  const element = document.createElement("span");
+
+  element.id = generateID();
+
+  element.style.position = "fixed";
+  element.style.left = "0px";
+  element.style.bottom = "0px";
+  element.style.height = `${BAR_HEIGHT}px`;
+  element.style.backgroundColor = "white";
+  element.style.transition = "all 100ms linear";
+
+  return element;
+}
+
+// * UTILS
+
+/**
+ * @template {HTMLElement} T
+ * @param {T} element
+ * @returns {T}
+ */
+function add(element) {
+  document.body.appendChild(element);
+
+  return element;
+}
+
+/**
+ * @template {HTMLElement} T
+ * @param {T} element
+ * @returns {T}
+ */
+function ensure(element) {
+  const previous = document.getElementById(element.id);
+
+  if (previous) {
+    return /** @type {T} */ (previous);
+  }
+
+  return add(element);
+}
+
+// * ELEMENTS
+const canvasElement = ensure(createCanvasElement(500));
+
+const fpsTextElement = ensure(createTextElement("0"));
+const scoreTextElement = ensure(createTextElement("0"));
+
+const infoElement = ensure(createInfoElement(fpsTextElement, scoreTextElement));
+
+const barElement = ensure(createBarElement());
+const pauseElement = ensure(createPauseSceneElement());
+
+// * RENDERER
+
+class Renderer {
+  #context;
+
+  /**
+   * @param {HTMLCanvasElement} canvas
+   */
+  constructor(canvas) {
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      throw new Error("Your browser does not support '2D' context");
     }
 
-    currentScore += score;
-    addRemainingTime(score);
+    this.#context = context;
+  }
 
-    currentEntities.delete(entity);
+  get width() {
+    return this.#context.canvas.width;
+  }
+
+  get height() {
+    return this.#context.canvas.height;
+  }
+
+  /**
+   * @param {string} color
+   */
+  clear(color) {
+    this.#context.fillStyle = color;
+    this.#context.fillRect(0, 0, this.width, this.height);
+  }
+
+  /**
+   * @param {string} color
+   * @param {number} x
+   * @param {number} y
+   * @param {number} radius
+   */
+  drawCircle(color, x, y, radius) {
+    this.#context.fillStyle = color;
+    this.#context.beginPath();
+    this.#context.arc(x, y, radius, 0, Math.PI * 2);
+    this.#context.fill();
   }
 }
 
-function renderEntities() {
-  for (const { x, y, score } of currentEntities) {
-    ctx.fillStyle = `hsl(51, 100%, ${score}%)`;
-    ctx.beginPath();
-    ctx.arc(x, y, ENTITY_RADIUS, 0, Math.PI * 2);
-    ctx.fill();
+// * INPUT
+
+class Input {
+  /** @type {Set<string>} */
+  #activeKeys = new Set();
+
+  /** @param {KeyboardEvent} event */
+  #onKeyDown = (event) => {
+    this.#activeKeys.add(event.code);
+  };
+
+  /** @param {KeyboardEvent} event */
+  #onKeyUp = (event) => {
+    this.#activeKeys.delete(event.code);
+  };
+
+  constructor() {
+    document.addEventListener("keydown", this.#onKeyDown);
+    document.addEventListener("keyup", this.#onKeyUp);
+  }
+
+  /**
+   * @param {string} code
+   */
+  isPressed(code) {
+    return this.#activeKeys.has(code);
+  }
+
+  clear() {
+    this.#activeKeys.clear();
   }
 }
 
-let currentFPS;
+// * PLAYER
 
-function calculateFPS(diff) {
-  const total = 1000 / diff;
+class Player {
+  #initialX;
+  #initialY;
 
-  currentFPS = Math.round(total);
-}
+  #x;
+  #y;
 
-function updateUI() {
-  fpsElement.innerText = currentFPS;
-  scoreElement.innerText = currentScore;
-  barElement.style.width = `${(remainingTimer / MAX_REMAINING_TIMER) * 100}%`;
-}
+  #velocityX = 0;
+  #velocityY = 0;
 
-let lastTime = performance.now();
+  /** @type {[number, number][]} */
+  #trace = [];
 
-function loop() {
-  const now = performance.now();
-  const diff = now - lastTime;
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
+  constructor(x, y) {
+    this.#x = x;
+    this.#y = y;
 
-  lastTime = now;
-
-  if (!paused) {
-    clear();
-    calculateVelocity();
-    renderPlayerTrace();
-    movePlayer(diff);
-    boundaryCheck();
-    generateEntity();
-    checkEntitiesCollision();
-    escapeEntities();
-    updateRemainingTime();
-    checkRemainingTime();
-    renderPlayer();
-    renderEntities();
-
-    calculateFPS(diff);
+    this.#initialX = x;
+    this.#initialY = y;
   }
 
-  requestAnimationFrame(loop);
+  get x() {
+    return this.#x;
+  }
+
+  get y() {
+    return this.#y;
+  }
+
+  get trace() {
+    return this.#trace;
+  }
+
+  reset() {
+    this.#x = this.#initialX;
+    this.#y = this.#initialY;
+
+    this.#velocityX = 0;
+    this.#velocityY = 0;
+
+    this.#trace.length = 0;
+  }
+
+  /**
+   * @param {Input} input
+   */
+  updateVelocity(input) {
+    if (input.isPressed("KeyW")) {
+      this.#velocityY = Math.max(
+        this.#velocityY - VELOCITY_THRESHOLD,
+        -MAX_VELOCITY,
+      );
+    }
+
+    if (input.isPressed("KeyS")) {
+      this.#velocityY = Math.min(
+        this.#velocityY + VELOCITY_THRESHOLD,
+        MAX_VELOCITY,
+      );
+    }
+
+    if (input.isPressed("KeyA")) {
+      this.#velocityX = Math.max(
+        this.#velocityX - VELOCITY_THRESHOLD,
+        -MAX_VELOCITY,
+      );
+    }
+
+    if (input.isPressed("KeyD")) {
+      this.#velocityX = Math.min(
+        this.#velocityX + VELOCITY_THRESHOLD,
+        MAX_VELOCITY,
+      );
+    }
+
+    this.#velocityX = this.#drainVelocity(this.#velocityX);
+    this.#velocityY = this.#drainVelocity(this.#velocityY);
+  }
+
+  /**
+   * @param {number} velocity
+   */
+  #drainVelocity(velocity) {
+    if (velocity === 0) {
+      return 0;
+    }
+
+    const direction = velocity < 0 ? -1 : 1;
+
+    return velocity - VELOCITY_THRESHOLD * VELOCITY_DRAIN_SPEED * direction;
+  }
+
+  /**
+   * @param {number} diff
+   */
+  update(diff) {
+    this.#x += this.#velocityX * diff * PLAYER_SPEED;
+    this.#y += this.#velocityY * diff * PLAYER_SPEED;
+  }
+
+  /**
+   * @param {number} width
+   * @param {number} height
+   */
+  constrain(width, height) {
+    this.#x = clamp(PLAYER_RADIUS, this.#x, width - PLAYER_RADIUS);
+
+    this.#y = clamp(PLAYER_RADIUS, this.#y, height - PLAYER_RADIUS);
+  }
+
+  tracePosition() {
+    if (this.#trace.length >= MAX_TRACE) {
+      this.#trace.shift();
+    }
+
+    this.#trace.push([this.#x, this.#y]);
+  }
 }
 
-setInterval(traceLastPositions, 10);
-setInterval(updateUI, 100);
+// * ENTITY
 
-loop();
+class Entity {
+  #x;
+  #y;
+  #score;
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {number} score
+   */
+  constructor(x, y, score) {
+    this.#x = x;
+    this.#y = y;
+    this.#score = score;
+  }
+
+  get x() {
+    return this.#x;
+  }
+
+  get y() {
+    return this.#y;
+  }
+
+  get score() {
+    return this.#score;
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
+  move(x, y) {
+    this.#x = x;
+    this.#y = y;
+  }
+}
+
+// * ENTITY GENERATOR
+
+class EntityGenerator {
+  #xRange;
+  #yRange;
+  #scoreRange;
+
+  /**
+   * @param {NumericRange} xRange
+   * @param {NumericRange} yRange
+   * @param {NumericRange} scoreRange
+   */
+  constructor(xRange, yRange, scoreRange) {
+    this.#xRange = xRange;
+    this.#yRange = yRange;
+    this.#scoreRange = scoreRange;
+  }
+
+  generate() {
+    return new Entity(
+      this.#xRange.random(ENTITY_RADIUS),
+      this.#yRange.random(ENTITY_RADIUS),
+      this.#scoreRange.randomInt(),
+    );
+  }
+}
+
+// * ENTITY MANAGER
+
+class EntityManager {
+  #limit;
+  #generator;
+
+  /** @type {Set<Entity>} */
+  #entities = new Set();
+
+  /**
+   * @param {EntityGenerator} generator
+   * @param {number} limit
+   */
+  constructor(generator, limit = Infinity) {
+    this.#generator = generator;
+    this.#limit = limit;
+  }
+
+  fill() {
+    if (this.#entities.size >= this.#limit) {
+      return;
+    }
+
+    this.#entities.add(this.#generator.generate());
+  }
+
+  reset() {
+    this.#entities.clear();
+  }
+
+  /**
+   * @param {(entity: Entity) => void} callback
+   */
+  foreach(callback) {
+    this.#entities.forEach(callback);
+  }
+
+  /**
+   * @param {Player} player
+   */
+  collectCollisions(player) {
+    const totalRadius = PLAYER_RADIUS + ENTITY_RADIUS;
+
+    let score = 0;
+
+    for (const entity of this.#entities) {
+      const dx = entity.x - player.x;
+      const dy = entity.y - player.y;
+
+      const distance = Math.hypot(dx, dy);
+
+      if (distance > totalRadius) {
+        continue;
+      }
+
+      score += entity.score;
+      this.#entities.delete(entity);
+    }
+
+    return score;
+  }
+
+  /**
+   * @param {Player} player
+   * @param {number} width
+   * @param {number} height
+   */
+  update(player, width, height) {
+    const totalRadius = PLAYER_RADIUS + DANGER_RADIUS + ENTITY_RADIUS;
+
+    for (const entity of this.#entities) {
+      const dx = entity.x - player.x;
+      const dy = entity.y - player.y;
+
+      const distance = Math.hypot(dx, dy);
+
+      if (distance > totalRadius || distance === 0) {
+        continue;
+      }
+
+      const scoreSpeed = entity.score / MAX_ENTITY_VALUE;
+
+      const dynamicSpeed =
+        MAX_ESCAPE_SPEED * (1 - distance / totalRadius) * scoreSpeed;
+
+      const nx = dx / distance;
+      const ny = dy / distance;
+
+      const x = clamp(
+        ENTITY_RADIUS,
+        entity.x + nx * dynamicSpeed,
+        width - ENTITY_RADIUS,
+      );
+
+      const y = clamp(
+        ENTITY_RADIUS,
+        entity.y + ny * dynamicSpeed,
+        height - ENTITY_RADIUS,
+      );
+
+      entity.move(x, y);
+    }
+  }
+}
+
+// * UI
+
+class UI {
+  #fpsElement;
+  #scoreElement;
+  #barElement;
+  #pauseElement;
+
+  /**
+   * @param {HTMLElement} fpsElement
+   * @param {HTMLElement} scoreElement
+   * @param {HTMLElement} barElement
+   * @param {HTMLElement} pauseElement
+   */
+  constructor(fpsElement, scoreElement, barElement, pauseElement) {
+    this.#fpsElement = fpsElement;
+    this.#scoreElement = scoreElement;
+    this.#barElement = barElement;
+    this.#pauseElement = pauseElement;
+  }
+
+  /**
+   * @param {number} fps
+   * @param {number} score
+   * @param {number} remaining
+   * @param {number} maximum
+   */
+  update(fps, score, remaining, maximum) {
+    this.#fpsElement.innerText = fps.toString();
+    this.#scoreElement.innerText = score.toString();
+
+    this.#barElement.style.width = `${(remaining / maximum) * 100}%`;
+  }
+
+  /**
+   * @param {boolean} paused
+   */
+  setPaused(paused) {
+    this.#pauseElement.style.display = paused ? "flex" : "none";
+  }
+}
+
+// * GAME
+
+class Game {
+  #renderer;
+  #input;
+  #ui;
+  #player;
+  #entityManager;
+
+  #score = 0;
+  #remainingTimer = MAX_REMAINING_TIMER;
+
+  #paused = false;
+
+  #lastTime = performance.now();
+  #fps = 0;
+
+  #traceTimer = 0;
+  #uiTimer = 0;
+
+  /**
+   * @param {Renderer} renderer
+   * @param {Input} input
+   * @param {UI} ui
+   */
+  constructor(renderer, input, ui) {
+    this.#renderer = renderer;
+    this.#input = input;
+    this.#ui = ui;
+
+    this.#player = new Player(renderer.width / 2, renderer.height / 2);
+
+    const generator = new EntityGenerator(
+      new NumericRange(0, renderer.width),
+      new NumericRange(0, renderer.height),
+      new NumericRange(MIN_ENTITY_VALUE, MAX_ENTITY_VALUE),
+    );
+
+    this.#entityManager = new EntityManager(generator, MAX_ENTITY_COUNT);
+
+    document.addEventListener("keydown", this.#handleKeyDown);
+  }
+
+  /** @param {KeyboardEvent} event */
+  #handleKeyDown = (event) => {
+    if (event.code === "Escape") {
+      this.togglePause();
+      return;
+    }
+
+    if (event.code === "KeyR") {
+      this.reset();
+
+      if (this.#paused) {
+        this.togglePause();
+      }
+    }
+  };
+
+  reset() {
+    this.#player.reset();
+    this.#entityManager.reset();
+
+    this.#score = 0;
+    this.#remainingTimer = MAX_REMAINING_TIMER;
+
+    this.#input.clear();
+
+    this.#traceTimer = 0;
+    this.#uiTimer = 0;
+  }
+
+  togglePause() {
+    this.#paused = !this.#paused;
+
+    this.#ui.setPaused(this.#paused);
+  }
+
+  /**
+   * @param {number} diff
+   */
+  #update(diff) {
+    this.#player.updateVelocity(this.#input);
+    this.#player.update(diff);
+    this.#player.constrain(this.#renderer.width, this.#renderer.height);
+
+    this.#traceTimer += diff;
+
+    if (this.#traceTimer >= 10) {
+      this.#player.tracePosition();
+
+      this.#traceTimer = 0;
+    }
+
+    this.#entityManager.fill();
+
+    const collectedScore = this.#entityManager.collectCollisions(this.#player);
+
+    this.#score += collectedScore;
+    this.#remainingTimer += collectedScore;
+
+    this.#entityManager.update(
+      this.#player,
+      this.#renderer.width,
+      this.#renderer.height,
+    );
+
+    this.#remainingTimer = Math.max(
+      this.#remainingTimer - REMAINING_TIMER_DRAIN,
+      0,
+    );
+
+    if (this.#remainingTimer <= 0) {
+      alert(`You lost, score: ${this.#score}`);
+      this.reset();
+    }
+
+    this.#uiTimer += diff;
+
+    if (this.#uiTimer >= 100) {
+      this.#ui.update(
+        this.#fps,
+        this.#score,
+        this.#remainingTimer,
+        MAX_REMAINING_TIMER,
+      );
+
+      this.#uiTimer = 0;
+    }
+  }
+
+  #drawPlayerTrace() {
+    const trace = this.#player.trace;
+
+    for (let i = 0; i < trace.length; i++) {
+      const [x, y] = trace[i];
+      const stepMultiplier = i / trace.length;
+
+      const color =
+        PLAYER_COLOR_MIN +
+        (PLAYER_COLOR_MAX - PLAYER_COLOR_MIN) * stepMultiplier;
+
+      const light = 50 - COLOR_DIFF + stepMultiplier * COLOR_DIFF;
+
+      this.#renderer.drawCircle(
+        `hsl(${color}, 100%, ${light}%)`,
+        x,
+        y,
+        PLAYER_RADIUS * stepMultiplier,
+      );
+    }
+  }
+
+  #drawPlayer() {
+    this.#renderer.drawCircle(
+      "hsl(237, 100%, 50%)",
+      this.#player.x,
+      this.#player.y,
+      PLAYER_RADIUS,
+    );
+  }
+
+  #drawEntities() {
+    this.#entityManager.foreach((entity) => {
+      this.#renderer.drawCircle(
+        `hsl(51, 100%, ${entity.score}%)`,
+        entity.x,
+        entity.y,
+        ENTITY_RADIUS,
+      );
+    });
+  }
+
+  #frame = () => {
+    const now = performance.now();
+    const diff = now - this.#lastTime;
+
+    this.#lastTime = now;
+
+    this.#fps = Math.round(1000 / diff);
+
+    this.#renderer.clear(BACKGROUND_COLOR);
+
+    if (!this.#paused) {
+      this.#update(diff);
+    }
+
+    this.#drawPlayerTrace();
+    this.#drawEntities();
+    this.#drawPlayer();
+
+    requestAnimationFrame(this.#frame);
+  };
+
+  start() {
+    this.#lastTime = performance.now();
+    requestAnimationFrame(this.#frame);
+  }
+}
+
+// * START
+const renderer = new Renderer(canvasElement);
+const input = new Input();
+const ui = new UI(fpsTextElement, scoreTextElement, barElement, pauseElement);
+const game = new Game(renderer, input, ui);
+
+game.start();
