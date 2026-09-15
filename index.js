@@ -219,11 +219,15 @@ function createLoseSceneElement(scoreElement) {
 
   title.innerText = "You Lost!";
 
+  const score = document.createElement("p");
+
+  score.append("Score: ", scoreElement);
+
   const message = document.createElement("p");
 
   message.innerText = "Press R to restart";
 
-  element.append(title, scoreElement, message);
+  element.append(title, score, message);
 
   return element;
 }
@@ -261,13 +265,14 @@ const canvasElement = ensure(createCanvasElement(500));
 
 const fpsTextElement = ensure(createTextElement("0"));
 const scoreTextElement = ensure(createTextElement("0"));
+const finalScoreTextElement = createTextElement("0");
 
 const infoElement = ensure(createInfoElement(fpsTextElement, scoreTextElement));
 
 const barElement = ensure(createBarElement());
 
 const pauseSceneElement = ensure(createPauseSceneElement());
-const loseSceneElement = ensure(createLoseSceneElement(scoreTextElement));
+const loseSceneElement = ensure(createLoseSceneElement(finalScoreTextElement));
 
 // * RENDERER
 
@@ -691,7 +696,11 @@ class UI {
     this.#pauseElement.style.display = paused ? "flex" : "none";
   }
 
-  showLose() {
+  /**
+   * @param {number} score
+   */
+  showLose(score) {
+    finalScoreTextElement.innerText = score.toString();
     this.#loseElement.style.display = "flex";
   }
 
@@ -712,7 +721,8 @@ class Game {
   #score = 0;
   #remainingTimer = MAX_REMAINING_TIMER;
 
-  #paused = false;
+  /** @type {"running" | "paused" | "over"} */
+  #state = "running";
 
   #lastTime = performance.now();
   #fps = 0;
@@ -745,17 +755,14 @@ class Game {
 
   /** @param {KeyboardEvent} event */
   #handleKeyDown = (event) => {
-    if (event.code === "Escape") {
-      this.togglePause();
-      return;
-    }
-
     if (event.code === "KeyR") {
       this.reset();
 
-      if (this.#paused) {
-        this.togglePause();
-      }
+      return;
+    }
+
+    if (event.code === "Escape") {
+      this.togglePause();
     }
   };
 
@@ -766,16 +773,27 @@ class Game {
     this.#score = 0;
     this.#remainingTimer = MAX_REMAINING_TIMER;
 
+    this.#state = "running";
+
     this.#input.clear();
 
     this.#traceTimer = 0;
     this.#uiTimer = 0;
+
+    this.#ui.setPaused(false);
+    this.#ui.hideLose();
   }
 
   togglePause() {
-    this.#paused = !this.#paused;
+    if (this.#state === "over") return;
 
-    this.#ui.setPaused(this.#paused);
+    if (this.#state === "paused") {
+      this.#state = "running";
+    } else {
+      this.#state = "paused";
+    }
+
+    this.#ui.setPaused(this.#state === "paused");
   }
 
   /**
@@ -813,8 +831,12 @@ class Game {
     );
 
     if (this.#remainingTimer <= 0) {
-      alert(`You lost, score: ${this.#score}`);
-      this.reset();
+      this.#remainingTimer = 0;
+      this.#state = "over";
+      this.#input.clear();
+      this.#ui.showLose(this.#score);
+
+      return;
     }
 
     this.#uiTimer += diff;
@@ -883,7 +905,7 @@ class Game {
 
     this.#renderer.clear(BACKGROUND_COLOR);
 
-    if (!this.#paused) {
+    if (this.#state === "running") {
       this.#update(diff);
     }
 
