@@ -199,6 +199,35 @@ function createBarElement() {
   return element;
 }
 
+/**
+ * @param {HTMLSpanElement} scoreElement
+ */
+function createLoseSceneElement(scoreElement) {
+  const element = document.createElement("div");
+
+  element.id = generateID();
+  element.style.backgroundColor = "rgba(0, 0, 0, 0.85)";
+  element.style.position = "fixed";
+  element.style.inset = "0";
+  element.style.color = "white";
+  element.style.display = "none";
+  element.style.flexDirection = "column";
+  element.style.justifyContent = "center";
+  element.style.alignItems = "center";
+
+  const title = document.createElement("h1");
+
+  title.innerText = "You Lost!";
+
+  const message = document.createElement("p");
+
+  message.innerText = "Press R to restart";
+
+  element.append(title, scoreElement, message);
+
+  return element;
+}
+
 // * UTILS
 
 /**
@@ -236,7 +265,9 @@ const scoreTextElement = ensure(createTextElement("0"));
 const infoElement = ensure(createInfoElement(fpsTextElement, scoreTextElement));
 
 const barElement = ensure(createBarElement());
-const pauseElement = ensure(createPauseSceneElement());
+
+const pauseSceneElement = ensure(createPauseSceneElement());
+const loseSceneElement = ensure(createLoseSceneElement(scoreTextElement));
 
 // * RENDERER
 
@@ -861,7 +892,12 @@ class Game {
 // * START
 const renderer = new Renderer(canvasElement);
 const input = new Input();
-const ui = new UI(fpsTextElement, scoreTextElement, barElement, pauseElement);
+const ui = new UI(
+  fpsTextElement,
+  scoreTextElement,
+  barElement,
+  pauseSceneElement,
+);
 const game = new Game(renderer, input, ui);
 
 game.start();
