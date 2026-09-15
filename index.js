@@ -654,18 +654,21 @@ class UI {
   #scoreElement;
   #barElement;
   #pauseElement;
+  #loseElement;
 
   /**
    * @param {HTMLElement} fpsElement
    * @param {HTMLElement} scoreElement
    * @param {HTMLElement} barElement
    * @param {HTMLElement} pauseElement
+   * @param {HTMLElement} loseElement
    */
-  constructor(fpsElement, scoreElement, barElement, pauseElement) {
+  constructor(fpsElement, scoreElement, barElement, pauseElement, loseElement) {
     this.#fpsElement = fpsElement;
     this.#scoreElement = scoreElement;
     this.#barElement = barElement;
     this.#pauseElement = pauseElement;
+    this.#loseElement = loseElement;
   }
 
   /**
@@ -686,6 +689,14 @@ class UI {
    */
   setPaused(paused) {
     this.#pauseElement.style.display = paused ? "flex" : "none";
+  }
+
+  showLose() {
+    this.#loseElement.style.display = "flex";
+  }
+
+  hideLose() {
+    this.#loseElement.style.display = "none";
   }
 }
 
@@ -897,6 +908,7 @@ const ui = new UI(
   scoreTextElement,
   barElement,
   pauseSceneElement,
+  loseSceneElement,
 );
 const game = new Game(renderer, input, ui);
 
