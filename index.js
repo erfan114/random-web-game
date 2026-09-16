@@ -756,7 +756,12 @@ class Joystick {
    * @param {PointerEvent} event
    */
   #start = (event) => {
-    if (this.#pointerId !== null || !this.#enabled) return;
+    if (
+      this.#pointerId !== null ||
+      !this.#enabled ||
+      event.target instanceof HTMLButtonElement
+    )
+      return;
 
     this.#pointerId = event.pointerId;
 
