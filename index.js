@@ -861,7 +861,9 @@ class Joystick {
   }
 
   get isActive() {
-    return !!this.#pointerId;
+    const hasPointer = this.#pointerId !== null;
+
+    return hasPointer && this.#enabled;
   }
 }
 
