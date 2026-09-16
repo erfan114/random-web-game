@@ -74,6 +74,9 @@ const REMAINING_TIMER_DRAIN = 1;
 
 const BAR_HEIGHT = 10;
 
+const JOYSTICK_CONTAINER_SIZE = 200;
+const JOYSTICK_SIZE = 100;
+
 // * ID
 
 function createIDGenerator() {
@@ -232,6 +235,42 @@ function createLoseSceneElement(scoreElement) {
   return element;
 }
 
+function createJoystickElement() {
+  const element = document.createElement("div");
+
+  element.id = generateID();
+
+  element.style.width = `${JOYSTICK_SIZE}px`;
+  element.style.height = `${JOYSTICK_SIZE}px`;
+  element.style.background = "gray";
+  element.style.borderRadius = "100%";
+
+  return element;
+}
+
+/**
+ * @param {HTMLElement} joystick
+ */
+function createJoystickContainerElement(joystick) {
+  const element = document.createElement("div");
+
+  element.id = generateID();
+
+  element.style.width = `${JOYSTICK_CONTAINER_SIZE}px`;
+  element.style.height = `${JOYSTICK_CONTAINER_SIZE}px`;
+  element.style.border = "5px gray solid";
+  element.style.borderRadius = "100%";
+  element.style.position = "fixed";
+  element.style.transform = "translate(-50%,-50%)";
+  element.style.display = "none";
+  element.style.alignItems = "center";
+  element.style.justifyContent = "center";
+
+  element.append(joystick);
+
+  return element;
+}
+
 // * UTILS
 
 /**
@@ -273,6 +312,11 @@ const barElement = ensure(createBarElement());
 
 const pauseSceneElement = ensure(createPauseSceneElement());
 const loseSceneElement = ensure(createLoseSceneElement(finalScoreTextElement));
+
+const joystickElement = createJoystickElement();
+const joystickContainerElement = ensure(
+  createJoystickContainerElement(joystickElement),
+);
 
 // * RENDERER
 
@@ -406,35 +450,31 @@ class Player {
 
   /**
    * @param {Input} input
+   * @param {Joystick} joystick
    */
-  updateVelocity(input) {
-    if (input.isPressed("KeyW")) {
-      this.#velocityY = Math.max(
-        this.#velocityY - VELOCITY_THRESHOLD,
-        -MAX_VELOCITY,
-      );
-    }
+  updateVelocity(input, joystick) {
+    let inputX = 0;
+    let inputY = 0;
 
-    if (input.isPressed("KeyS")) {
-      this.#velocityY = Math.min(
-        this.#velocityY + VELOCITY_THRESHOLD,
-        MAX_VELOCITY,
-      );
-    }
+    if (input.isPressed("KeyW")) inputY -= 1;
+    if (input.isPressed("KeyS")) inputY += 1;
+    if (input.isPressed("KeyA")) inputX -= 1;
+    if (input.isPressed("KeyD")) inputX += 1;
 
-    if (input.isPressed("KeyA")) {
-      this.#velocityX = Math.max(
-        this.#velocityX - VELOCITY_THRESHOLD,
-        -MAX_VELOCITY,
-      );
-    }
+    const joyStickInput = joystick.getInput();
 
-    if (input.isPressed("KeyD")) {
-      this.#velocityX = Math.min(
-        this.#velocityX + VELOCITY_THRESHOLD,
-        MAX_VELOCITY,
-      );
-    }
+    inputX += joyStickInput.x;
+    inputY += joyStickInput.y;
+
+    this.#velocityX = Math.min(
+      Math.max(this.#velocityX + inputX * VELOCITY_THRESHOLD, -MAX_VELOCITY),
+      MAX_VELOCITY,
+    );
+
+    this.#velocityY = Math.min(
+      Math.max(this.#velocityY + inputY * VELOCITY_THRESHOLD, -MAX_VELOCITY),
+      MAX_VELOCITY,
+    );
 
     this.#velocityX = this.#drainVelocity(this.#velocityX);
     this.#velocityY = this.#drainVelocity(this.#velocityY);
@@ -652,6 +692,134 @@ class EntityManager {
   }
 }
 
+// * JOYSTICK
+class Joystick {
+  #inner;
+  #container;
+
+  /** @type {number | null} */
+  #pointerId = null;
+
+  #origin = { x: 0, y: 0 };
+  #input = { x: 0, y: 0 };
+  #enabled = true;
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
+  #setInput(x, y) {
+    this.#input.x = x;
+    this.#input.y = y;
+  }
+
+  /**
+   * @param {PointerEvent} event
+   */
+  #move = (event) => {
+    if (event.pointerId !== this.#pointerId) return;
+
+    const dx = event.clientX - this.#origin.x;
+    const dy = event.clientY - this.#origin.y;
+
+    const distance = Math.hypot(dx, dy);
+    const radius = JOYSTICK_CONTAINER_SIZE / 2;
+
+    const scale = distance > radius ? radius / distance : 1;
+
+    const x = dx * scale;
+    const y = dy * scale;
+
+    this.#setInput(x / radius, y / radius);
+
+    this.#inner.style.transform = `translate(${x}px, ${y}px)`;
+  };
+
+  /**
+   * @param {boolean} state
+   */
+  #show(state) {
+    this.#container.style.display = state ? "flex" : "none";
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
+  #setPosition(x, y) {
+    this.#container.style.left = `${x}px`;
+    this.#container.style.top = `${y}px`;
+    this.#inner.style.transform = "none";
+  }
+
+  /**
+   * @param {PointerEvent} event
+   */
+  #start = (event) => {
+    if (this.#pointerId !== null || !this.#enabled) return;
+
+    this.#pointerId = event.pointerId;
+
+    this.#origin.x = event.clientX;
+    this.#origin.y = event.clientY;
+
+    this.#setPosition(event.clientX, event.clientY);
+    this.#show(true);
+    document.addEventListener("pointermove", this.#move);
+  };
+
+  /**
+   * @param {PointerEvent} event
+   */
+  #end = (event) => {
+    if (event.pointerId !== this.#pointerId) return;
+
+    this.#pointerId = null;
+
+    this.#forceEnd();
+  };
+
+  #forceEnd() {
+    document.removeEventListener("pointermove", this.#move);
+    this.#show(false);
+    this.#setInput(0, 0);
+  }
+
+  #registerListeners() {
+    document.addEventListener("pointerdown", this.#start);
+    document.addEventListener("pointerup", this.#end);
+    document.addEventListener("pointercancel", this.#end);
+  }
+
+  /**
+   * @param {HTMLElement} inner
+   * @param {HTMLElement} container
+   */
+  constructor(inner, container) {
+    this.#inner = inner;
+    this.#container = container;
+
+    this.#registerListeners();
+  }
+
+  disable() {
+    this.#enabled = false;
+    this.#forceEnd();
+  }
+
+  enable() {
+    this.#enabled = true;
+  }
+
+  getInput() {
+    return this.#input;
+  }
+
+  get isActive() {
+    return !!this.#pointerId;
+  }
+}
+
 // * UI
 
 class UI {
@@ -715,6 +883,8 @@ class Game {
   #renderer;
   #input;
   #ui;
+  #joystick;
+
   #player;
   #entityManager;
 
@@ -734,11 +904,13 @@ class Game {
    * @param {Renderer} renderer
    * @param {Input} input
    * @param {UI} ui
+   * @param {Joystick} joystick
    */
-  constructor(renderer, input, ui) {
+  constructor(renderer, input, ui, joystick) {
     this.#renderer = renderer;
     this.#input = input;
     this.#ui = ui;
+    this.#joystick = joystick;
 
     this.#player = new Player(renderer.width / 2, renderer.height / 2);
 
@@ -782,6 +954,8 @@ class Game {
 
     this.#ui.setPaused(false);
     this.#ui.hideLose();
+
+    this.#joystick.enable();
   }
 
   togglePause() {
@@ -800,7 +974,7 @@ class Game {
    * @param {number} diff
    */
   #update(diff) {
-    this.#player.updateVelocity(this.#input);
+    this.#player.updateVelocity(this.#input, this.#joystick);
     this.#player.update(diff);
     this.#player.constrain(this.#renderer.width, this.#renderer.height);
 
@@ -834,6 +1008,7 @@ class Game {
       this.#remainingTimer = 0;
       this.#state = "over";
       this.#input.clear();
+      this.#joystick.disable();
       this.#ui.showLose(this.#score);
 
       return;
@@ -932,6 +1107,7 @@ const ui = new UI(
   pauseSceneElement,
   loseSceneElement,
 );
-const game = new Game(renderer, input, ui);
+const joystick = new Joystick(joystickElement, joystickContainerElement);
+const game = new Game(renderer, input, ui, joystick);
 
 game.start();
