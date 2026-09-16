@@ -46,7 +46,7 @@ class NumericRange {
 
 const BACKGROUND_COLOR = "lightblue";
 
-const LEFT_PADDING = 10;
+const SCREEN_PADDING = 10;
 
 const PLAYER_SPEED = 0.3;
 const PLAYER_RADIUS = 10;
@@ -271,6 +271,36 @@ function createJoystickContainerElement(joystick) {
   return element;
 }
 
+/**
+ * @param {string} text
+ */
+function createButton(text) {
+  const element = document.createElement("button");
+
+  element.innerText = text;
+
+  return element;
+}
+
+/**
+ * @param {HTMLButtonElement} pauseButton
+ * @param {HTMLButtonElement} resetButton
+ */
+function createButtonsContainer(pauseButton, resetButton) {
+  const element = document.createElement("div");
+
+  element.style.right = `${SCREEN_PADDING}px`;
+  element.style.top = `${SCREEN_PADDING}px`;
+  element.style.position = "fixed";
+  element.style.display = "flex";
+  element.style.flexDirection = "column";
+  element.style.gap = "2px";
+
+  element.append(pauseButton, resetButton);
+
+  return element;
+}
+
 // * UTILS
 
 /**
@@ -316,6 +346,13 @@ const loseSceneElement = ensure(createLoseSceneElement(finalScoreTextElement));
 const joystickElement = createJoystickElement();
 const joystickContainerElement = ensure(
   createJoystickContainerElement(joystickElement),
+);
+
+const pauseButtonElement = createButton("Pause");
+const resetButtonElement = createButton("Reset");
+
+const buttonsContainerElement = ensure(
+  createButtonsContainer(pauseButtonElement, resetButtonElement),
 );
 
 // * RENDERER
@@ -1114,5 +1151,8 @@ const ui = new UI(
 );
 const joystick = new Joystick(joystickElement, joystickContainerElement);
 const game = new Game(renderer, input, ui, joystick);
+
+pauseButtonElement.addEventListener("click", () => game.togglePause());
+resetButtonElement.addEventListener("click", () => game.reset());
 
 game.start();
