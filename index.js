@@ -500,10 +500,10 @@ class Player {
     let inputX = 0;
     let inputY = 0;
 
-    if (input.isPressed("KeyW")) inputY -= 1;
-    if (input.isPressed("KeyS")) inputY += 1;
-    if (input.isPressed("KeyA")) inputX -= 1;
-    if (input.isPressed("KeyD")) inputX += 1;
+    if (input.isPressed("KeyW") || input.isPressed("ArrowUp")) inputY -= 1;
+    if (input.isPressed("KeyS") || input.isPressed("ArrowDown")) inputY += 1;
+    if (input.isPressed("KeyA") || input.isPressed("ArrowLeft")) inputX -= 1;
+    if (input.isPressed("KeyD") || input.isPressed("ArrowRight")) inputX += 1;
 
     const joyStickInput = joystick.getInput();
 
