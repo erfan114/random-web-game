@@ -856,6 +856,13 @@ class Joystick {
     this.#enabled = true;
   }
 
+  /**
+   * @param {boolean} state
+   */
+  toggle(state) {
+    this.#enabled = state;
+  }
+
   getInput() {
     return this.#input;
   }
