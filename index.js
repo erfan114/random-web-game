@@ -77,6 +77,9 @@ const BAR_HEIGHT = 10;
 const JOYSTICK_CONTAINER_SIZE = 200;
 const JOYSTICK_SIZE = 100;
 
+const PAUSE_BUTTON_TEXT = "Toggle pause";
+const RESET_BUTTON_TEXT = "Restart";
+
 // * ID
 
 function createIDGenerator() {
@@ -180,7 +183,7 @@ function createPauseSceneElement() {
 
   const message = document.createElement("p");
 
-  message.innerText = "Press ESC to continue";
+  message.innerText = `Press 'ESC' key or '${PAUSE_BUTTON_TEXT}' button to continue`;
 
   element.append(title, message);
 
@@ -228,7 +231,7 @@ function createLoseSceneElement(scoreElement) {
 
   const message = document.createElement("p");
 
-  message.innerText = "Press R to restart";
+  message.innerText = `Press 'R' key or '${RESET_BUTTON_TEXT}' button to restart`;
 
   element.append(title, score, message);
 
@@ -348,8 +351,8 @@ const joystickContainerElement = ensure(
   createJoystickContainerElement(joystickElement),
 );
 
-const pauseButtonElement = createButton("Pause");
-const resetButtonElement = createButton("Reset");
+const pauseButtonElement = createButton(PAUSE_BUTTON_TEXT);
+const resetButtonElement = createButton(RESET_BUTTON_TEXT);
 
 const buttonsContainerElement = ensure(
   createButtonsContainer(pauseButtonElement, resetButtonElement),
