@@ -1021,7 +1021,10 @@ class Game {
       this.#state = "paused";
     }
 
-    this.#ui.setPaused(this.#state === "paused");
+    const paused = this.#state === "paused";
+
+    this.#ui.setPaused(paused);
+    this.#joystick.toggle(!paused);
   }
 
   /**
