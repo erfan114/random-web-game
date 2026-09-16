@@ -145,7 +145,7 @@ function createInfoElement(fpsElement, scoreElement) {
 
   scoreWrapperElement.append("Score: ", scoreElement);
 
-  const moveTipElement = createTextElement("Move: A/W/S/D");
+  const moveTipElement = createTextElement("Move: A/W/S/D/JOYSTICK");
   const pauseTipElement = createTextElement("Pause: ESC");
   const restartTipElement = createTextElement("Restart: R");
 
