@@ -79,6 +79,8 @@ const JOYSTICK_SIZE = 100;
 
 const PAUSE_BUTTON_TEXT = "Toggle pause";
 const RESET_BUTTON_TEXT = "Restart";
+const GITHUB_BUTTON_TEXT = "Github";
+const GITHUB_URL = "https://github.com/erfan114/random-web-game";
 
 // * ID
 
@@ -284,16 +286,30 @@ function createJoystickContainerElement(joystick) {
 function createButton(text) {
   const element = document.createElement("button");
 
+  element.classList.add("button");
   element.innerText = text;
 
   return element;
 }
 
 /**
- * @param {HTMLButtonElement} pauseButton
- * @param {HTMLButtonElement} resetButton
+ * @param {string} text
+ * @param {string} href
  */
-function createButtonsContainer(pauseButton, resetButton) {
+function createLinkButton(text, href) {
+  const element = document.createElement("a");
+
+  element.classList.add("button");
+  element.innerText = text;
+  element.href = href;
+
+  return element;
+}
+
+/**
+ * @param {HTMLElement[]} elements
+ */
+function createButtonsContainer(...elements) {
   const element = document.createElement("div");
 
   element.style.right = `${SCREEN_PADDING}px`;
@@ -303,7 +319,7 @@ function createButtonsContainer(pauseButton, resetButton) {
   element.style.flexDirection = "column";
   element.style.gap = "2px";
 
-  element.append(pauseButton, resetButton);
+  element.append(...elements);
 
   return element;
 }
@@ -357,9 +373,14 @@ const joystickContainerElement = ensure(
 
 const pauseButtonElement = createButton(PAUSE_BUTTON_TEXT);
 const resetButtonElement = createButton(RESET_BUTTON_TEXT);
+const githubLinkElement = createLinkButton(GITHUB_BUTTON_TEXT, GITHUB_URL);
 
 const buttonsContainerElement = ensure(
-  createButtonsContainer(pauseButtonElement, resetButtonElement),
+  createButtonsContainer(
+    pauseButtonElement,
+    resetButtonElement,
+    githubLinkElement,
+  ),
 );
 
 // * RENDERER
@@ -803,9 +824,11 @@ class Joystick {
     if (
       this.#pointerId !== null ||
       !this.#enabled ||
-      event.target instanceof HTMLButtonElement
-    )
+      event.target instanceof HTMLButtonElement ||
+      event.target instanceof HTMLAnchorElement
+    ) {
       return;
+    }
 
     this.#pointerId = event.pointerId;
 
